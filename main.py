@@ -13,6 +13,11 @@ def check_rsa(data):
         return None
 
 def export(basedir, o, binaries, filedate=None, region="Japan", type=0):
+    if filedate is not None:
+        dt = datetime.datetime.fromtimestamp(filedate)
+    else:
+        dt = datetime.datetime.now()
+
     dir = "{:s}/{:s}".format(basedir, o["server_name"])
     if not os.path.exists(dir): os.makedirs(dir)
     if "beacon" in binaries:
@@ -24,8 +29,9 @@ def export(basedir, o, binaries, filedate=None, region="Japan", type=0):
         fn = "{:s} [{:08X}]".format(o["name"], crc32)
     else:
         fn = "{:s} ({:s}) [{:08X}]".format(o["title"], o["name"], crc32)
-        
-    if check_rsa(o["data"]) is not False:
+    
+    rsa_check = check_rsa(o["data"])
+    if rsa_check is not False:
         print("┗━━ {:s}".format(fn))
         if not os.path.exists(dir + "/{:s}".format(fn)): os.makedirs(dir + "/{:s}".format(fn))
         
@@ -43,59 +49,14 @@ def export(basedir, o, binaries, filedate=None, region="Japan", type=0):
             csv[section]["sha1"] = hashlib.sha1(data).hexdigest()
             csv[section]["sha256"] = hashlib.sha256(data).hexdigest()
         
-        with open(dir + "/{:s}/file.csv".format(fn), "wb") as f:
-            csv_sections_file = ["forcename", "extension", "size", "crc32", "md5", "sha1", "sha256"]
-            csv_out = '"' + '";"'.join(csv_sections_file) + '"\n'
-            for csv_file in csv:
-                for (csv_col, csv_val) in csv[csv_file].items():
-                    csv_out += "\"{:s}\";".format(str(csv_val).replace("\"", ""))
-                csv_out = csv_out[:-1] + "\n"
-            f.write(csv_out.encode("UTF-8-SIG"))
-        
-        with open(dir + "/{:s}/source.csv".format(fn), "wb") as f:
-            if filedate is not None:
-                dt = datetime.datetime.fromtimestamp(filedate)
-            else:
-                dt = datetime.datetime.now()
-            csv_sections_source = {"dumper":"Lesserkuma", "d_date":dt.strftime("%Y-%m-%d"), "tool":"", "origin":"", "comment1":"[RSA signature verifies OK]"}
-            if type == 1:
-                csv_sections_source["tool"] = APPNAME
-            elif type == 3:
-                csv_sections_source["tool"] = APPNAME
-                csv_sections_source["origin"] = "Nintendo Channel DS Download Service on the Wii"
-            
-            csv_out = '"' + '";"'.join(csv_sections_source.keys()) + '"\n'
-            for csv_val in csv_sections_source.values():
-                csv_out += "\"{:s}\";".format(str(csv_val).replace("\"", ""))
-            csv_out = csv_out[:-1] + "\n"
-            f.write(csv_out.encode("UTF-8-SIG"))
-
-        with open(dir + "/{:s}/archive.csv".format(fn), "wb") as f:
-            if filedate is not None:
-                dt = datetime.datetime.fromtimestamp(filedate)
-            else:
-                dt = datetime.datetime.now()
-            csv_sections_archive = {"region":str(region), "version":"Rev {:d}".format(binaries["header"][0x1E])}
-            if binaries["header"][0x1E] == 0:
-                del(csv_sections_archive["version"])
-            if region is None:
-                del(csv_sections_archive["region"])
-            csv_out = '"' + '";"'.join(csv_sections_archive.keys()) + '"\n'
-            for csv_val in csv_sections_archive.values():
-                csv_out += "\"{:s}\";".format(str(csv_val).replace("\"", ""))
-            csv_out = csv_out[:-1] + "\n"
-            f.write(csv_out.encode("UTF-8-SIG"))
-
-        with open(dir + "/{:s}/post.txt".format(fn), "wb") as f:
+        with open(dir + "/{:s}/info.txt".format(fn), "wb") as f:
             s = "[DS Download Play] {:s}\n\n".format(fn)
             s += "[b]Game Name:[/b] {:s}\n".format(fn)
             s += "[b]System:[/b] DS Download Play\n"
             s += "[b]Region:[/b] {:s}\n".format(region)
-            s += "[b]Dumper:[/b] Lesserkuma\n"
+            s += "[b]Dumper:[/b] \n"
             s += "[b]Dump Date:[/b] {:s}\n".format(dt.strftime("%Y-%m-%d"))
-            s += "[b]Tool:[/b] {:s}\n".format(csv_sections_source["tool"])
-            if csv_sections_source["origin"] != "":
-                s += "[b]Origin:[/b] {:s}\n".format(csv_sections_source["origin"])
+            s += "[b]Tool:[/b] {:s}\n".format(APPNAME)
             s += "\n[b]Files:[/b]\n"
             for csv_file in csv:
                 s += "[code]\n"
@@ -115,7 +76,7 @@ def export(basedir, o, binaries, filedate=None, region="Japan", type=0):
                     s += "* Game Title:      {:s}\n".format(binaries["header"][0:0x0C].decode("ASCII", "ignore").strip("\x00"))
                     s += "* Game Code:       {:s}\n".format(binaries["header"][0x0C:0x10].decode("ASCII", "ignore").strip("\x00"))
                     s += "* Revision:        {:d}\n".format(binaries["header"][0x1E])
-                    s += "* RSA Validation:  OK\n"
+                    s += "* RSA Validation:  {:s}\n".format("OK" if rsa_check else "Unknown")
                     header_offset = 0
                     if type == 4:
                         header_size = 0x4000 #struct.unpack("<I", binaries["header"][0x84:0x88])[0]
