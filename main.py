@@ -1,7 +1,7 @@
 import binascii, os, subprocess, argparse, struct, hashlib, zlib, datetime, re
 from in_pcap import PCAP2DSDP
 from in_nch import NCH2DSDP
-APPNAME = "DSDLP Assembler v1.0"
+APPNAME = "DSDLP Assembler v0.1"
 
 def check_rsa(data):
     if os.path.exists("ndsrsa.exe"):
