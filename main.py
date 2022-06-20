@@ -57,6 +57,10 @@ def export(basedir, o, binaries, filedate=None, region="Japan", type=0):
             s += "[b]Dumper:[/b] \n"
             s += "[b]Dump Date:[/b] {:s}\n".format(dt.strftime("%Y-%m-%d"))
             s += "[b]Tool:[/b] {:s}\n".format(APPNAME)
+            if type == 1:
+                s += "[b]Origin:[/b] Raw Wi-Fi packet capture\n".format(APPNAME)
+            elif type == 3:
+                s += "[b]Origin:[/b] Nintendo Channel DS Download Service on the Wii\n".format(APPNAME)
             s += "\n[b]Files:[/b]\n"
             for csv_file in csv:
                 s += "[code]\n"
