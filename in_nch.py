@@ -1,3 +1,4 @@
+from http import server
 import struct
 from dsdp import *
 from in_srl import SRL2DSDP
@@ -59,8 +60,8 @@ class NCH2DSDP:
         bin["beacon"] = bytearray(0x358)
         bin["beacon"][0:0x20] = bin["banner"][0x220:0x240]
         bin["beacon"][0x20:0x220] = bin["banner"][0x20:0x220]
-        bin["beacon"][0x220] = 0x0A
-        bin["beacon"][0x221] = 0x0A
+        bin["beacon"][0x220] = 0x0A # Color
+        bin["beacon"][0x221] = len(server_name)
         temp = server_name.encode("UTF-16LE")
         bin["beacon"][0x222:0x222+len(temp)] = temp
         bin["beacon"][0x236] = 0x02

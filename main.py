@@ -1,7 +1,10 @@
-import binascii, os, subprocess, argparse, struct, hashlib, zlib, datetime, re
+import binascii, os, subprocess, argparse, struct, hashlib, zlib, datetime, re, shutil, datetime
 from in_pcap import PCAP2DSDP
 from in_nch import NCH2DSDP
-APPNAME = "DSDLP Assembler v0.1"
+from in_srl import SRL2DSDP
+APPNAME = "DSDLP Assembler"
+APPNAME_FULL = "{:s} v0.2".format(APPNAME)
+DATES = {}
 
 def check_rsa(data):
     if os.path.exists("ndsrsa.exe"):
@@ -12,7 +15,7 @@ def check_rsa(data):
         print("! Couldn’t verify RSA signature as ndsrsa.exe is missing")
         return None
 
-def export(basedir, o, binaries, filedate=None, region="Japan", type=0):
+def export(basedir, o, binaries, filedate=None, region="", type=0):
     if filedate is not None:
         dt = datetime.datetime.fromtimestamp(filedate)
     else:
@@ -20,26 +23,31 @@ def export(basedir, o, binaries, filedate=None, region="Japan", type=0):
 
     dir = "{:s}/{:s}".format(basedir, o["server_name"])
     if not os.path.exists(dir): os.makedirs(dir)
+    crc32_nds = binascii.crc32(o["data"])
+    crc32_bcn = None
     if "beacon" in binaries:
-        crc32 = binascii.crc32(o["data"] + binaries["beacon"])
+        crc32_global = binascii.crc32(o["data"] + binaries["beacon"])
+        crc32_bcn = binascii.crc32(binaries["beacon"])
     else:
-        crc32 = binascii.crc32(o["data"])
+        crc32_global = binascii.crc32(o["data"])
     
     if o["title"].strip() == "":
-        fn = "{:s} [{:08X}]".format(o["name"], crc32)
+        fn = "{:s}".format(o["name"])
+        fn_glob = "{:s} [{:08X}]".format(fn, crc32_global)
     else:
-        fn = "{:s} ({:s}) [{:08X}]".format(o["title"], o["name"], crc32)
+        fn = "{:s} ({:s})".format(o["title"], o["name"])
+        fn_glob = "{:s} [{:08X}]".format(fn, crc32_global)
     
     rsa_check = check_rsa(o["data"])
     if rsa_check is not False:
-        print("┗━━ {:s}".format(fn))
-        if not os.path.exists(dir + "/{:s}".format(fn)): os.makedirs(dir + "/{:s}".format(fn))
+        print("┗━━ {:s}".format(fn_glob))
+        if not os.path.exists(dir + "/{:s}".format(fn_glob)): os.makedirs(dir + "/{:s}".format(fn_glob))
         
         csv = {}
-        sections = {"{:s}.nds".format(fn):o["data"]}
-        if "beacon" in binaries: sections["{:s}.bcn".format(fn)] = binaries["beacon"]
+        sections = {"{:s} [{:08X}].nds".format(fn, crc32_nds):o["data"]}
+        if "beacon" in binaries: sections["{:s} [{:08X}].bcn".format(fn, crc32_bcn)] = binaries["beacon"]
         for (section, data) in sections.items():
-            with open(dir + "/{:s}/{:s}".format(fn, section), "wb") as f: f.write(data)
+            with open(dir + "/{:s}/{:s}".format(fn_glob, section), "wb") as f: f.write(data)
             csv[section] = {}
             csv[section]["forcename"] = ""
             csv[section]["extension"] = section[-3:]
@@ -49,18 +57,35 @@ def export(basedir, o, binaries, filedate=None, region="Japan", type=0):
             csv[section]["sha1"] = hashlib.sha1(data).hexdigest()
             csv[section]["sha256"] = hashlib.sha256(data).hexdigest()
         
-        with open(dir + "/{:s}/info.txt".format(fn), "wb") as f:
-            s = "[DS Download Play] {:s}\n\n".format(fn)
-            s += "[b]Game Name:[/b] {:s}\n".format(fn)
+        if type == 3:
+            fni = os.path.split(o["infile"])[1]
+            shutil.copy(o["infile"], dir + "/{:s}/{:s}".format(fn_glob, fni))
+            with open(o["infile"], "rb") as fi: data = fi.read()
+            csv[fni] = {}
+            csv[fni]["forcename"] = fni
+            csv[fni]["size"] = len(data)
+            csv[fni]["crc32"] = "{:08x}".format(zlib.crc32(data) & 0xFFFFFFFF)
+            csv[fni]["md5"] = hashlib.md5(data).hexdigest()
+            csv[fni]["sha1"] = hashlib.sha1(data).hexdigest()
+            csv[fni]["sha256"] = hashlib.sha256(data).hexdigest()
+
+        with open(dir + "/{:s}/post.txt".format(fn_glob), "wb") as f:
+            if dt.strftime("%Y-%m-%d") not in DATES: DATES[dt.strftime("%Y-%m-%d")] = []
+            if not "{:s}/{:s}".format(dir, fn_glob) in DATES[dt.strftime("%Y-%m-%d")]:
+                DATES[dt.strftime("%Y-%m-%d")].append("{:s}/{:s}".format(dir, fn_glob))
+
+            s = "[DS Download Play] {:s}\n\n".format(fn_glob)
+            s += "[b]Game Name:[/b] {:s}\n".format(fn_glob)
             s += "[b]System:[/b] DS Download Play\n"
+            s += "[b]Type:[/b] Playable demo version\n"
             s += "[b]Region:[/b] {:s}\n".format(region)
+            if region == "Japan":
+                s += "[b]Languages:[/b] Japanese\n"
+            else:
+                s += "[b]Languages:[/b] \n"
             s += "[b]Dumper:[/b] \n"
             s += "[b]Dump Date:[/b] {:s}\n".format(dt.strftime("%Y-%m-%d"))
-            s += "[b]Tool:[/b] {:s}\n".format(APPNAME)
-            if type == 1:
-                s += "[b]Origin:[/b] Raw Wi-Fi packet capture\n".format(APPNAME)
-            elif type == 3:
-                s += "[b]Origin:[/b] Nintendo Channel DS Download Service on the Wii\n".format(APPNAME)
+            s += "[b]Tool:[/b] {:s}\n".format(APPNAME_FULL)
             s += "\n[b]Files:[/b]\n"
             for csv_file in csv:
                 s += "[code]\n"
@@ -82,10 +107,7 @@ def export(basedir, o, binaries, filedate=None, region="Japan", type=0):
                     s += "* Revision:        {:d}\n".format(binaries["header"][0x1E])
                     s += "* RSA Validation:  {:s}\n".format("OK" if rsa_check else "Unknown")
                     header_offset = 0
-                    if type == 4:
-                        header_size = 0x4000 #struct.unpack("<I", binaries["header"][0x84:0x88])[0]
-                    else:
-                        header_size = 0x160
+                    header_size = 0x160
                     arm9_offset = struct.unpack("<I", binaries["header"][0x20:0x24])[0]
                     arm9_size = struct.unpack("<I", binaries["header"][0x2C:0x30])[0]
                     arm7_offset = struct.unpack("<I", binaries["header"][0x30:0x34])[0]
@@ -105,35 +127,51 @@ def export(basedir, o, binaries, filedate=None, region="Japan", type=0):
                     s += "* Server Name:     {:s}\n".format(binaries["beacon"][0x222:0x236].decode("UTF-16LE", "ignore").strip("\x00"))
                 s += "[/code]\n"
             f.write(s.encode("UTF-8-SIG"))
+
     else:
-        print("┗XX [RSA Check Failed] {:s}".format(fn))
+        print("┗XX [RSA Check Failed] {:s}".format(fn_glob))
 
-def do_cap(file, basedir, region=""):
-    print("· {:s}".format(file))
-    pcap2dsdp = PCAP2DSDP(file, raw=True)
-    dsdp = pcap2dsdp.GetDSDP()
-    for (o, complete, binaries) in dsdp:
-        if not complete:
-            try:
-                print("┗?? [Incomplete] {:s}".format(binaries["header"][0:0x10].decode("ASCII", "ignore")))
-            except:
-                print("┗?? [Incomplete] {:s}".format(file))
-        elif len(o["server_name"].strip()) == 0:
-            print("┗?? [Server Name Unknown] {:s}".format(binaries["header"][0:0x10].decode("ASCII", "ignore")))
-        else:
+def do_nch(files, basedir, region=""):
+    for file in files:
+        print("< {:s}".format(file))
+        nch2dsdp = NCH2DSDP(file, raw=True)
+        dsdp = nch2dsdp.GetDSDP()
+        for (o, binaries) in dsdp:
             dt = os.path.getmtime(file)
-            m = re.search("capture\-(\d{4})(\d{2})(\d{2})\-\d{6}", file)
-            if m is not None and len(m.groups()) >= 3:
-                dt = datetime.datetime(int(m.groups()[0]), int(m.groups()[1]), int(m.groups()[2])).timestamp()
-            export(basedir, o, binaries, dt, region, 1)
+            o["infile"] = file
+            export(basedir, o, binaries, dt, region, 3)
 
-def do_nch(file, basedir, region=""):
-    print("< {:s}".format(file))
-    nch2dsdp = NCH2DSDP(file, raw=True)
-    dsdp = nch2dsdp.GetDSDP()
-    for (o, binaries) in dsdp:
-        dt = os.path.getmtime(file)
-        export(basedir, o, binaries, dt, region, 3)
+def do_srl(files, basedir):
+    for file in files:
+        print("< {:s}".format(file))
+        nds2dsdp = SRL2DSDP(file, raw=True)
+        dsdp = nds2dsdp.GetDSDP()
+        for (o, binaries) in dsdp:
+            o["server_name"] = ""
+            dt = os.path.getmtime(file)
+            binaries["beacon"] = binaries["fake_beacon"]
+            export(basedir, o, binaries, dt)
+
+def do_cap(files, basedir, region=""):
+    for file in files:
+        print("· {:s}".format(file))
+        pcap2dsdp = PCAP2DSDP(file, raw=True)
+        dsdp = pcap2dsdp.GetDSDP()
+        for (o, complete, binaries) in dsdp:
+            if not complete:
+                try:
+                    print("┗?? [Incomplete] {:s}".format(binaries["header"][0:0x10].decode("ASCII", "ignore")))
+                except:
+                    print("┗?? [Incomplete] {:s}".format(file))
+            elif len(o["server_name"].strip()) == 0:
+                print("┗?? [Server Name Unknown] {:s}".format(binaries["header"][0:0x10].decode("ASCII", "ignore")))
+            else:
+                o["infile"] = file
+                dt = os.path.getmtime(file)
+                m = re.search("capture\-(\d{4})(\d{2})(\d{2})\-\d{6}", file)
+                if m is not None and len(m.groups()) >= 3:
+                    dt = datetime.datetime(int(m.groups()[0]), int(m.groups()[1]), int(m.groups()[2])).timestamp()
+                export(basedir, o, binaries, dt, region, 1)
 
 
 class ArgParseCustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter): pass
@@ -147,10 +185,13 @@ def __main__():
     ext = os.path.splitext(args.infile)
     if ext[1] in (".cap", ".pcap"):
         print("Mode: PCAP Wi-Fi Capture\n")
-        do_cap(args.infile, args.outdir)
+        do_cap([args.infile], args.outdir)
     elif ext[1] in (".bin"):
         print("Mode: Nintendo Channel DLC .bin file\n")
-        do_nch(args.infile, args.outdir)
+        do_nch([args.infile], args.outdir)
+    elif ext[1] in (".nds"):
+        print("Mode: Existing .nds file (clean-up)\n")
+        do_srl([args.infile], args.outdir)
     if os.path.exists("temp.bin"): os.unlink("temp.bin")
 
 __main__()

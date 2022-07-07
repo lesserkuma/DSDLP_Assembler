@@ -1,3 +1,4 @@
+from http import server
 import struct
 from dsdp import *
 
@@ -55,13 +56,14 @@ class SRL2DSDP:
             bin["header"] = buffer[0x220:0x220+0x160]
             offset_banner = struct.unpack("<I", buffer[0x68:0x6C])[0]
             if offset_banner != 0:
+                server_name = buffer[0x390:0x3A6]
+                server_name_len = len(server_name.decode("UTF-16LE").strip("\x00"))
                 bin["banner_template"] = bytearray(0x358)
                 bin["banner_template"][0x000:0x020] = buffer[offset_banner+0x220:offset_banner+0x240]
                 bin["banner_template"][0x020:0x220] = buffer[offset_banner+0x020:offset_banner+0x220]
                 bin["banner_template"][0x220] = 0x0A
-                bin["banner_template"][0x221] = 0x0A
+                bin["banner_template"][0x221] = server_name_len
                 bin["banner_template"][0x222:0x238] = buffer[0x390:0x3A6]
-                server_name = buffer[0x390:0x3A6]
                 title = buffer[offset_banner+0x240:offset_banner+0x340].split(b"\x0A\x00")
                 bin["banner_template"][0x238:len(title[0])] = title[0]
                 desc = bytearray()
@@ -95,7 +97,7 @@ class SRL2DSDP:
                 bin["fake_beacon"][0:0x20] = bin["banner"][0x220:0x240]
                 bin["fake_beacon"][0x20:0x220] = bin["banner"][0x20:0x220]
                 bin["fake_beacon"][0x220] = 0x0A
-                bin["fake_beacon"][0x221] = 0x0A
+                bin["fake_beacon"][0x221] = server_name_len
                 bin["fake_beacon"][0x222:0x222+len(server_name)] = server_name
                 bin["fake_beacon"][0x236] = 0x02
                 title = bin["banner"][0x240:0x340].split(b"\n\x00")
