@@ -49,6 +49,7 @@ class SRL2DSDP:
         bin["arm9"] = buffer[offset_arm9:offset_arm9+size_arm9]
         bin["arm7"] = buffer[offset_arm7:offset_arm7+size_arm7]
 
+        server_name_len = 0
         if buffer[0x200:0x210] == b'DS DOWNLOAD PLAY':
             rsa_pos = buffer.rfind(b'\x61\x63\x01\x00')
             if rsa_pos == -1: raise Exception("RSA missing")

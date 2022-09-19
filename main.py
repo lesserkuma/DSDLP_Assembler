@@ -3,7 +3,7 @@ from in_pcap import PCAP2DSDP
 from in_nch import NCH2DSDP
 from in_srl import SRL2DSDP
 APPNAME = "DSDLP Assembler"
-APPNAME_FULL = "{:s} v0.2".format(APPNAME)
+APPNAME_FULL = "{:s} v0.3".format(APPNAME)
 DATES = {}
 
 def check_rsa(data):
