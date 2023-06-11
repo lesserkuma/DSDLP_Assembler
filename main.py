@@ -3,17 +3,40 @@ from in_pcap import PCAP2DSDP
 from in_nch import NCH2DSDP
 from in_srl import SRL2DSDP
 APPNAME = "DSDLP Assembler"
-APPNAME_FULL = "{:s} v0.3".format(APPNAME)
+APPNAME_FULL = "{:s} v1.0".format(APPNAME)
 DATES = {}
+PUBKEY = None
 
-def check_rsa(data):
-    if os.path.exists("ndsrsa.exe"):
-        with open("temp.bin", "wb") as f: f.write(data)
-        p = subprocess.run(["ndsrsa.exe", "verify", "nintendo", "temp.bin"], capture_output=True, text=True)
-        return "signature = valid" in p.stdout
-    else:
-        print("! Couldn’t verify RSA signature as ndsrsa.exe is missing")
+def check_rsa(binaries):
+    global PUBKEY
+    try:
+        import rsa
+    except ImportError:
+        print("! Couldn’t verify RSA signature as the \"rsa\" package is not installed")
         return None
+        
+    if PUBKEY is None:
+        if not os.path.exists("pubkey.bin"):
+            print("! Couldn’t verify RSA signature as pubkey.bin is missing")
+            return None
+        else:
+            with open("pubkey.bin", "rb") as f:
+                PUBKEY = pubkey = rsa.PublicKey(int.from_bytes(f.read(), byteorder='big'), 65537)
+    
+    signature = binaries["rsa"][0x04:0x84]
+    hash_calc = \
+        hashlib.sha1(binaries["header"]).digest() + \
+        hashlib.sha1(binaries["arm9"]).digest() + \
+        hashlib.sha1(binaries["arm7"]).digest() + \
+        binaries["rsa"][0x84:0x88]
+    with open("debug.bin", "wb") as f: f.write(signature)
+    try:
+        rsa.verify(hash_calc, signature, PUBKEY)
+        return True
+    except rsa.pkcs1.VerificationError:
+        return False
+    except:
+        raise
 
 def export(basedir, o, binaries, filedate=None, region="", type=0):
     if filedate is not None:
@@ -38,7 +61,7 @@ def export(basedir, o, binaries, filedate=None, region="", type=0):
         fn = "{:s} ({:s})".format(o["title"], o["name"])
         fn_glob = "{:s} [{:08X}]".format(fn, crc32_global)
     
-    rsa_check = check_rsa(o["data"])
+    rsa_check = check_rsa(binaries)
     if rsa_check is not False:
         print("┗━━ {:s}".format(fn_glob))
         if not os.path.exists(dir + "/{:s}".format(fn_glob)): os.makedirs(dir + "/{:s}".format(fn_glob))
@@ -128,6 +151,28 @@ def export(basedir, o, binaries, filedate=None, region="", type=0):
                 s += "[/code]\n"
             f.write(s.encode("UTF-8-SIG"))
 
+        # Generate files custom.xml for Dat-o-Matic
+        with open(dir + "/{:s}/custom.xml".format(fn_glob), "wb") as f:
+            xml = '<?xml version="1.0" encoding="utf-8"?>\n<datafile>\n'
+            for csv_file in csv:
+                size = csv[csv_file]["size"]
+                crc32 = csv[csv_file]["crc32"]
+                md5 = csv[csv_file]["md5"]
+                sha1 = csv[csv_file]["sha1"]
+                sha256 = csv[csv_file]["sha256"]
+                extension = os.path.splitext(csv_file)[1][1:]
+                if csv_file.endswith("nds") and size > 0:
+                    serial = binaries["header"][0x0C:0x10].decode("ASCII", "ignore")
+                    xml += f'<file forcename="" extension="{extension}" size="{size}" crc32="{crc32}" md5="{md5}" sha1="{sha1}" sha256="{sha256}" serial="{serial}" format="Default" bad="0" unique="1" />\n'
+                elif csv_file.endswith("bcn"):
+                    game_name = binaries["beacon"][0x238:0x298].decode("UTF-16LE", "ignore").split("\x00")[0].strip()
+                    game_description = binaries["beacon"][0x298:0x358].decode("UTF-16LE", "ignore").split("\x00")[0].strip().replace("\n", "␤").replace("\r", "␍")
+                    server_name = binaries["beacon"][0x222:0x236].decode("UTF-16LE", "ignore").strip("\x00")
+                    note = f"[Name: {game_name}][Description: {game_description}][Server: {server_name}]"
+                    xml += f'<file forcename="" extension="{extension}" size="{size}" crc32="{crc32}" md5="{md5}" sha1="{sha1}" sha256="{sha256}" note="{note}" format="Default" bad="0" unique="1" />\n'
+            xml += '</datafile>'
+            f.write(xml.encode("UTF-8-SIG"))
+    
     else:
         print("┗XX [RSA Check Failed] {:s}".format(fn_glob))
 
@@ -176,7 +221,7 @@ def do_cap(files, basedir, region=""):
 
 class ArgParseCustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter): pass
 def __main__():
-    print("\n{:s}\nby Lesserkuma\n".format(APPNAME))
+    print("\n{:s}\nby Lesserkuma\n".format(APPNAME_FULL))
     parser = argparse.ArgumentParser(formatter_class=ArgParseCustomFormatter)
     parser = argparse.ArgumentParser()
     parser.add_argument("infile", help="", type=str)
