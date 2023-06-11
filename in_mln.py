@@ -1,4 +1,4 @@
-import struct, hashlib, rsa, os
+import struct, hashlib, os
 from dsdp import *
 
 class MLN2DSDP:
@@ -17,11 +17,17 @@ class MLN2DSDP:
 			return
 
 		if mlnstate[0:4] != b'MELN':
-			print("┗!! Error: Invalid melonDS save state file.")
+			raise Exception("Error: Invalid melonDS save state file.")
 			return
 		
 		if mlnstate[4] != 0x0A:
 			print(f"┗!! Warning: melonDS save state version 0x{mlnstate[4]:02X} is different than this tool was developed for (0x0A).")
+		
+		try:
+			import rsa
+		except ImportError:
+			raise Exception("Error: Can’t verify RSA signature as the \"rsa\" package is not installed.")
+			return
 		
 		beacon_offset_mln = 0x399634
 		rsa_offset_mln = 0x38A6D4
