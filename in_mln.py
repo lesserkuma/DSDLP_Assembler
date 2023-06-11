@@ -1,4 +1,4 @@
-import struct, hashlib, rsa
+import struct, hashlib, rsa, os
 from dsdp import *
 
 class MLN2DSDP:
@@ -87,6 +87,10 @@ class MLN2DSDP:
 			raise Exception("ARM9 section is too large")
 		if arm7_size > 0x40000:
 			raise Exception("ARM7 section is too large")
+		
+		if not os.path.exists("pubkey.bin"):
+			with open("pubkey.bin", "wb") as f:
+				f.write(mlnstate[pubkey_offset_mln:pubkey_offset_mln+0x80])
 
 		self.BINARIES = bin
 		self.DSDP = DSDP(type=1, rsa=bin["rsa"], header=bin["header"], arm9=bin["arm9"], arm7=bin["arm7"], rom=bin["rom"], banner_template=bin["beacon"], raw=raw)
