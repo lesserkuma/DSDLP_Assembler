@@ -30,7 +30,7 @@ def check_rsa(binaries):
 		hashlib.sha1(binaries["arm9"]).digest() + \
 		hashlib.sha1(binaries["arm7"]).digest() + \
 		binaries["rsa"][0x84:0x88]
-	with open("debug.bin", "wb") as f: f.write(signature)
+	
 	try:
 		rsa.verify(hash_calc, signature, PUBKEY)
 		return True
