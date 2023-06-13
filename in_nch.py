@@ -1,4 +1,3 @@
-from http import server
 import struct
 from dsdp import *
 from in_srl import SRL2DSDP

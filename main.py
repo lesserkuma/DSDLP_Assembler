@@ -4,7 +4,7 @@ from in_nch import NCH2DSDP
 from in_srl import SRL2DSDP
 from in_mln import MLN2DSDP
 APPNAME = "DSDLP Assembler"
-APPNAME_FULL = "{:s} v1.0".format(APPNAME)
+APPNAME_FULL = "{:s} v1.1".format(APPNAME)
 DATES = {}
 PUBKEY = None
 
@@ -233,24 +233,25 @@ def do_cap(files, basedir, region=""):
 class ArgParseCustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter): pass
 def __main__():
 	print("\n{:s}\nby Lesserkuma\n".format(APPNAME_FULL))
+
 	parser = argparse.ArgumentParser(formatter_class=ArgParseCustomFormatter)
 	parser = argparse.ArgumentParser()
 	parser.add_argument("infile", help="", type=str)
 	parser.add_argument("--outdir", help="", type=str, default="./output")
 	args = parser.parse_args()
 	ext = os.path.splitext(args.infile)
+
 	if ext[1] in (".cap", ".pcap"):
 		print("Mode: PCAP Wi-Fi Capture\n")
 		do_cap([args.infile], args.outdir)
 	elif ext[1] in (".bin"):
 		print("Mode: Nintendo Channel DLC .bin file\n")
 		do_nch([args.infile], args.outdir)
-	elif ext[1] in (".nds"):
+	elif ext[1] in (".nds", ".srl"):
 		print("Mode: Existing .nds file (clean-up)\n")
 		do_srl([args.infile], args.outdir)
-	elif ext[1] in (".mln"):
+	elif ext[1] in (".mln", ".ml1", ".ml2", ".ml3", ".ml4", ".ml5", ".ml6", ".ml7", ".ml8"):
 		print("Mode: melonDS save state file\n")
 		do_mln([args.infile], args.outdir)
-	if os.path.exists("temp.bin"): os.unlink("temp.bin")
 
 __main__()

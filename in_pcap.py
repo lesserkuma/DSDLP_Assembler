@@ -127,7 +127,6 @@ class PCAP2DSDP:
 				arm7_size = struct.unpack("<I", temp[0x3C:0x40])[0]
 				rsa_key = (arm9_size, arm7_size)
 				if rsa_key not in s["rsa"]:
-					#print("Missing RSA packet")
 					print("[{:s}/#{:X}/{:s}] Missing RSA packet".format(str(source_address_str), content_id, romtitle))
 					num_packets_header = math.ceil(0x160 / content["packet_length"])
 					num_packets_arm9 = math.ceil(arm9_size / content["packet_length"])
@@ -140,27 +139,13 @@ class PCAP2DSDP:
 					num_packets_arm7 = math.ceil(s["rsa"][rsa_key][3] / content["packet_length"])
 				num_packets_total = num_packets_header + num_packets_arm9 + num_packets_arm7 + 1
 
-				# Debug
-				# dbgdir = "output/debug/{:s} ({:s}) ({:d})/".format(str(rsa_key), str(content["packet_length"]), num_packets_total)
-				# if 0 in content["rom"]:
-				#	 #dbgdir = "output/debug/{:s} {:s}/".format(content["rom"][pos].DATA[2][0:0x10].decode("ASCII", "ignore").replace("\x00", "_"), str(rsa_key) + str(content["packet_length"]))
-				#	 dbgdir = "output/debug/{:s} {:s} ({:s}) ({:d})/".format(content["rom"][pos].DATA[2][0:0x10].decode("ASCII", "ignore").replace("\x00", "_"), str(rsa_key), str(content["packet_length"]), num_packets_total)
-				#	 #print(dbgdir)
-				#	 #sys.exit()
-				# if not os.path.exists(dbgdir): os.makedirs(dbgdir)
-				# if rsa_key in s["rsa"]:
-				#	 with open(dbgdir + "0000_rsa", "wb") as f: f.write(s["rsa"][rsa_key][0]) # DEBUG
-				# Debug
-
 				for i in range(0, num_packets_header):
 					if pos not in content["rom"]:
 						data_missing["header"].append(pos)
 					else:
 						bin["header"] += content["rom"][pos].DATA[2]
-						# with open(dbgdir + "{:04d}_header".format(pos), "wb") as f: f.write(content["rom"][pos].DATA[2]) # DEBUG
 					pos += 1
 				if len(data_missing["header"]) > 0:
-					#print("[#{:X}/{:s}] {:d} missing header packet(s)".format(content_id, romtitle, len(data_missing["header"])))
 					print("[{:s}/#{:X}/{:s}] {:d} missing header packet(s)".format(str(source_address_str), content_id, romtitle, len(data_missing["header"])))
 					temp = ""
 					for i in data_missing["header"]:
@@ -171,10 +156,8 @@ class PCAP2DSDP:
 						data_missing["arm9"].append(pos)
 					else:
 						bin["arm9"] += content["rom"][pos].DATA[2]
-						# with open(dbgdir + "{:04d}_arm9".format(pos), "wb") as f: f.write(content["rom"][pos].DATA[2]) # DEBUG
 					pos += 1
 				if len(data_missing["arm9"]) > 0:
-					#print("[#{:X}/{:s}] {:d} missing ARM9 packet(s)".format(content_id, romtitle, len(data_missing["arm9"])))
 					print("[{:s}/#{:X}/{:s}] {:d} missing ARM9 packet(s)".format(str(source_address_str), content_id, romtitle, len(data_missing["arm9"])))
 					temp = ""
 					for i in data_missing["arm9"]:
@@ -185,10 +168,8 @@ class PCAP2DSDP:
 						data_missing["arm7"].append(pos)
 					else:
 						bin["arm7"] += content["rom"][pos].DATA[2]
-						# with open(dbgdir + "{:04d}_arm7".format(pos), "wb") as f: f.write(content["rom"][pos].DATA[2]) # DEBUG
 					pos += 1
 				if len(data_missing["arm7"]) > 0:
-					#print("[#{:X}/{:s}] {:d} missing ARM7 packet(s)".format(content_id, romtitle, len(data_missing["arm7"])))
 					print("[{:s}/#{:X}/{:s}] {:d} missing ARM7 packet(s)".format(str(source_address_str), content_id, romtitle, len(data_missing["arm7"])))
 					temp = ""
 					for i in data_missing["arm7"]:
@@ -197,7 +178,6 @@ class PCAP2DSDP:
 				if "beacon" in content and len(content["beacon"]) == 9:
 					for i in range(0, len(content["beacon"])):
 						bin["beacon"] += content["beacon"][i].DATA[3]
-						# with open(dbgdir + "{:04d}_beacon".format(i), "wb") as f: f.write(content["beacon"][i].DATA[3]) # DEBUG
 					bin["beacon"] = bin["beacon"][:0x358]
 				else:
 					print("Banner skipped")
@@ -209,7 +189,6 @@ class PCAP2DSDP:
 				banner_offset = struct.unpack("<I", bin["header"][0x68:0x6C])[0]
 				if banner_offset == 0:
 					banner_offset = arm7_offset + arm7_size
-					#print("Header doesn’t allow for a valid DS Game Card banner ({:s})".format(bin["header"][0:0x10].decode("ASCII", "ignore")))
 				rsa_offset = banner_offset + 0x840
 				bin["rom"] = bytearray(rsa_offset + len(bin["rsa"]))
 

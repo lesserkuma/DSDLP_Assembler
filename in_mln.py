@@ -29,12 +29,21 @@ class MLN2DSDP:
 			raise Exception("Error: Can’t verify RSA signature as the \"rsa\" package is not installed.")
 			return
 		
-		beacon_offset_mln = 0x399634
-		rsa_offset_mln = 0x38A6D4
-		header_offset_mln = 0x3FFE24
-		arm9_offset_mln = 0x24 + 0x4000
-		arm7_offset_mln = 0x2C0024
-		pubkey_offset_mln = 0x373A28
+		dsi_mode = mlnstate[0x3FFE30:0x3FFE34] == b'HNDA'
+		if dsi_mode:
+			beacon_offset_mln = 0x393BF4
+			rsa_offset_mln = 0x384F80
+			header_offset_mln = 0x7FFE24
+			arm9_offset_mln = 0x24 + 0x4000
+			arm7_offset_mln = 0x2C0024
+			pubkey_offset_mln = 0x35EBFC
+		else:
+			beacon_offset_mln = 0x399634
+			rsa_offset_mln = 0x38A6D4
+			header_offset_mln = 0x3FFE24
+			arm9_offset_mln = 0x24 + 0x4000
+			arm7_offset_mln = 0x2C0024
+			pubkey_offset_mln = 0x373A28
 		
 		if hashlib.sha1(mlnstate[header_offset_mln+0xC0:header_offset_mln+0xC0+0x9C]).hexdigest() != "17daa0fec02fc33c0f6abb549a8b80b6613b48ee":
 			raise Exception("Invalid header!")
